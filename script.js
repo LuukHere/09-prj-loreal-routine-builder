@@ -3,8 +3,10 @@ const categoryFilter = document.getElementById("categoryFilter");
 const productsContainer = document.getElementById("productsContainer");
 const chatForm = document.getElementById("chatForm");
 const chatWindow = document.getElementById("chatWindow");
-
+const selectedProductsList = document.getElementById("selectedProductsList");
 const workerURL = "https://new-beauty-bot.crops1023.workers.dev/";
+
+let selectedProducts = [];
 
 /* Show initial placeholder until user selects a category */
 productsContainer.innerHTML = `
@@ -35,18 +37,95 @@ function displayProducts(products) {
   `
     )
     .join("");
+
+  addProductSelectionHandlers(); // Enable selection after rendering
 }
+
+/* Update the selected products UI */
+function updateSelectedProductsUI() {
+  selectedProductsList.innerHTML = selectedProducts
+    .map(
+      (product) => `
+      <div class="product-chip" data-name="${product.name}">
+        <img src="${product.image}" alt="${product.name}" />
+        <span>${product.name}</span>
+        <button class="remove-chip-btn" aria-label="Remove ${product.name}">✖</button>
+      </div>
+    `
+    )
+    .join("");
+
+  // Add event listeners for each remove button
+  document.querySelectorAll(".remove-chip-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const chip = e.target.closest(".product-chip");
+      const productName = chip.dataset.name;
+
+      // Remove from selectedProducts array
+      selectedProducts = selectedProducts.filter(
+        (product) => product.name !== productName
+      );
+
+      // Unselect the corresponding product card if still visible
+      const matchingCard = Array.from(document.querySelectorAll(".product-card"))
+        .find((card) => card.querySelector("h3").innerText === productName);
+
+      if (matchingCard) {
+        matchingCard.classList.remove("selected");
+      }
+
+      updateSelectedProductsUI(); // Re-render the chips
+    });
+  });
+}
+
+
+/* Enable click-to-select on each product card */
+function addProductSelectionHandlers() {
+  const productCards = document.querySelectorAll(".product-card");
+
+  productCards.forEach((card) => {
+    const name = card.querySelector("h3").innerText;
+
+    // PRE-SELECT if already in selectedProducts
+    const isAlreadySelected = selectedProducts.some((p) => p.name === name);
+    if (isAlreadySelected) {
+      card.classList.add("selected");
+    }
+
+    card.addEventListener("click", () => {
+      const brand = card.querySelector("p").innerText;
+      const image = card.querySelector("img").src;
+      const product = { name, brand, image };
+
+      card.classList.toggle("selected");
+
+      const isNowSelected = card.classList.contains("selected");
+
+      if (isNowSelected) {
+        if (!selectedProducts.some((p) => p.name === name)) {
+          selectedProducts.push(product);
+        }
+      } else {
+        selectedProducts = selectedProducts.filter((p) => p.name !== name);
+      }
+
+      updateSelectedProductsUI();
+    });
+  });
+}
+
 
 /* Filter and display products when category changes */
 categoryFilter.addEventListener("change", async (e) => {
   const products = await loadProducts();
   const selectedCategory = e.target.value;
 
-  /* filter() creates a new array containing only products 
-     where the category matches what the user selected */
   const filteredProducts = products.filter(
     (product) => product.category === selectedCategory
   );
+
+  
 
   displayProducts(filteredProducts);
 });
@@ -55,19 +134,15 @@ categoryFilter.addEventListener("change", async (e) => {
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  // Get the user's message from the input field
   const userInput = chatForm.elements["userInput"].value;
 
-  // Show the user's message in the chat window
   chatWindow.innerHTML += `<div><strong>You:</strong> ${userInput}</div>`;
 
-  // Prepare messages array for OpenAI API (system + user)
   const messages = [
     { role: "system", content: "You are a helpful beauty assistant." },
     { role: "user", content: userInput },
   ];
 
-  // Send the messages to the workerURL using fetch
   try {
     const response = await fetch(workerURL, {
       method: "POST",
@@ -79,7 +154,6 @@ chatForm.addEventListener("submit", async (e) => {
 
     const data = await response.json();
 
-    // Check if the AI returned a response
     if (
       data &&
       data.choices &&
@@ -87,7 +161,6 @@ chatForm.addEventListener("submit", async (e) => {
       data.choices[0].message &&
       data.choices[0].message.content
     ) {
-      // Show the AI's response in the chat window
       chatWindow.innerHTML += `<div><strong>AI:</strong> ${data.choices[0].message.content}</div>`;
     } else {
       chatWindow.innerHTML += `<div><strong>AI:</strong> Sorry, no response from AI.</div>`;
@@ -97,6 +170,5 @@ chatForm.addEventListener("submit", async (e) => {
     console.error(error);
   }
 
-  // Clear the input field after sending
   chatForm.reset();
 });

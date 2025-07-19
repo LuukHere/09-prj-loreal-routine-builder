@@ -253,3 +253,41 @@ body {
 .generate-btn i {
   margin-right: 8px;
 }
+
+.product-card.selected {
+  border: 2px solid #00aaff; /* Light blue border when selected */
+  background-color: #f0faff; /* Optional: light background to indicate selection */
+}
+
+.product-chip {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  padding: 6px 12px;
+  background: #f4f4f4;
+  font-size: 14px;
+  gap: 8px;
+  position: relative;
+}
+
+.product-chip img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.remove-chip-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.remove-chip-btn:hover {
+  color: #e00;
+}
+
