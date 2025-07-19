@@ -4,6 +4,8 @@ const productsContainer = document.getElementById("productsContainer");
 const chatForm = document.getElementById("chatForm");
 const chatWindow = document.getElementById("chatWindow");
 
+const workerURL = "https://new-beauty-bot.crops1023.workers.dev/";
+
 /* Show initial placeholder until user selects a category */
 productsContainer.innerHTML = `
   <div class="placeholder-message">
@@ -49,9 +51,52 @@ categoryFilter.addEventListener("change", async (e) => {
   displayProducts(filteredProducts);
 });
 
-/* Chat form submission handler - placeholder for OpenAI integration */
-chatForm.addEventListener("submit", (e) => {
+/* Chat form submission handler - sends user message to AI and shows response in chatbox */
+chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  chatWindow.innerHTML = "Connect to the OpenAI API for a response!";
+  // Get the user's message from the input field
+  const userInput = chatForm.elements["userInput"].value;
+
+  // Show the user's message in the chat window
+  chatWindow.innerHTML += `<div><strong>You:</strong> ${userInput}</div>`;
+
+  // Prepare messages array for OpenAI API (system + user)
+  const messages = [
+    { role: "system", content: "You are a helpful beauty assistant." },
+    { role: "user", content: userInput },
+  ];
+
+  // Send the messages to the workerURL using fetch
+  try {
+    const response = await fetch(workerURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ messages }),
+    });
+
+    const data = await response.json();
+
+    // Check if the AI returned a response
+    if (
+      data &&
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+    ) {
+      // Show the AI's response in the chat window
+      chatWindow.innerHTML += `<div><strong>AI:</strong> ${data.choices[0].message.content}</div>`;
+    } else {
+      chatWindow.innerHTML += `<div><strong>AI:</strong> Sorry, no response from AI.</div>`;
+    }
+  } catch (error) {
+    chatWindow.innerHTML += `<div><strong>AI:</strong> Error connecting to AI.</div>`;
+    console.error(error);
+  }
+
+  // Clear the input field after sending
+  chatForm.reset();
 });
