@@ -153,7 +153,7 @@ generateRoutineBtn.addEventListener("click", async () => {
   const messages = [
     {
       role: "system",
-      content: `You are a beauty expert helping users create personalized skincare, haircare, or makeup routines using product details. Use simple language and clear instructions. Focus on the products provided by the user. Make the styling of the response user-friendly and easy to follow.`,
+      content: `You are a beauty expert helping users create personalized skincare, haircare, or makeup routines using product details. Use simple language and clear instructions. Focus on the products provided by the user. Make the styling of the response user-friendly and easy to follow. Make the response short and concise, ideally under 400 tokens.`,
     },
     {
       role: "user",
@@ -166,7 +166,15 @@ generateRoutineBtn.addEventListener("click", async () => {
   ];
 
   // Show user message in chat
+  // Show user message in chat
   chatWindow.innerHTML += `<div><strong>You:</strong> Please create a routine using my selected products.</div>`;
+
+  // Show AI thinking message and store its element so we can replace it later
+  const thinkingMessage = document.createElement("div");
+  thinkingMessage.innerHTML = `<strong>AI:</strong> <em>Thinking...</em>`;
+  chatWindow.appendChild(thinkingMessage);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+
 
   try {
     const response = await fetch(workerURL, {
@@ -174,7 +182,12 @@ generateRoutineBtn.addEventListener("click", async () => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({
+        messages,
+        max_tokens: 400 // Change this number as needed (default is often 256–300)
+      }),
+
+      
     });
 
     const data = await response.json();
@@ -187,7 +200,8 @@ generateRoutineBtn.addEventListener("click", async () => {
       data.choices[0].message.content
     ) {
       const aiResponse = data.choices[0].message.content;
-      chatWindow.innerHTML += `<div><strong>AI:</strong><br>${aiResponse.replace(/\n/g, "<br>")}</div>`;
+      thinkingMessage.innerHTML = `<strong>AI:</strong><br>${aiResponse.replace(/\n/g, "<br>")}`;
+
     } else {
       chatWindow.innerHTML += `<div><strong>AI:</strong> Sorry, no routine could be generated.</div>`;
     }
