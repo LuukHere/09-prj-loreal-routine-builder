@@ -3,123 +3,144 @@ const categoryFilter = document.getElementById("categoryFilter");
 const productsContainer = document.getElementById("productsContainer");
 const chatForm = document.getElementById("chatForm");
 const chatWindow = document.getElementById("chatWindow");
-const selectedProductsList = document.getElementById("selectedProductsList");
 const generateRoutineBtn = document.getElementById("generateRoutine");
+const selectedProductsList = document.getElementById("selectedProductsList");
 
 const workerURL = "https://new-beauty-bot.crops1023.workers.dev/";
 
-let selectedProducts = [];
+// Persistent conversation history
+const conversationHistory = [
+  { role: "system", content: `You are an expert, helpful beauty assistant for L'Oreal. The questions from the user should relate only to the generated routine or to topics like skincare, haircare, makeup, fragrance, and other related areas. Do not answer questions outside of these topics. 
+`}
+];
 
-/* Show initial placeholder until user selects a category */
-productsContainer.innerHTML = `
-  <div class="placeholder-message">
-    Select a category to view products
-  </div>
-`;
+// Track selected products globally
+const selectedProducts = [];
 
-/* Load product data from JSON file */
+/* Load product data */
 async function loadProducts() {
   const response = await fetch("products.json");
   const data = await response.json();
   return data.products;
 }
 
-/* Display product cards */
+/* Display products */
 function displayProducts(products) {
   productsContainer.innerHTML = products
+    .map((product) => {
+      const isSelected = selectedProducts.some((p) => p.name === product.name);
+      return `
+        <div class="product-card ${isSelected ? "selected" : ""}" data-name="${product.name}">
+          <img src="${product.image}" alt="${product.name}">
+          <div class="product-info">
+            <h3>${product.name}</h3>
+            <p>${product.brand}</p>
+            <button class="details-btn">Details</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Add click listeners
+  document.querySelectorAll(".product-card").forEach((card) => {
+    card.addEventListener("click", (e) => {
+      if (e.target.classList.contains("details-btn")) return; // Skip if clicking Details button
+      const name = card.dataset.name;
+      toggleProductSelection(name);
+    });
+  });
+
+  // Add modal listeners
+  document.querySelectorAll(".details-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const name = btn.closest(".product-card").dataset.name;
+      const allProducts = await loadProducts();
+      const product = allProducts.find((p) => p.name === name);
+      if (product) showModal(product);
+    });
+  });
+}
+
+/* Toggle selection */
+function toggleProductSelection(name) {
+  loadProducts().then((allProducts) => {
+    const product = allProducts.find((p) => p.name === name);
+    const index = selectedProducts.findIndex((p) => p.name === name);
+    if (index > -1) {
+      selectedProducts.splice(index, 1);
+    } else {
+      selectedProducts.push(product);
+    }
+    updateSelectedProductsUI();
+    displayProducts(
+      allProducts.filter((p) => p.category === categoryFilter.value)
+    );
+  });
+}
+
+/* Update selected chips */
+function updateSelectedProductsUI() {
+  selectedProductsList.innerHTML = selectedProducts
     .map(
-      (product) => `
-    <div class="product-card" data-name="${product.name}">
-      <img src="${product.image}" alt="${product.name}">
-      <div class="product-info">
-        <h3>${product.name}</h3>
-        <p>${product.brand}</p>
-        <button class="details-btn" type="button">Details</button>
-      </div>
+      (p) => `
+    <div class="chip">
+      ${p.name}
+      <button class="remove-chip" data-name="${p.name}">✖</button>
     </div>
   `
     )
     .join("");
 
-  addProductSelectionHandlers();
-  addDetailsButtonHandlers(products);
-}
-
-/* Handle selection and deselection of product cards */
-function addProductSelectionHandlers() {
-  const productCards = document.querySelectorAll(".product-card");
-
-  productCards.forEach((card) => {
-    const name = card.querySelector("h3").innerText;
-
-    // Pre-select card if already in selected list
-    if (selectedProducts.some((p) => p.name === name)) {
-      card.classList.add("selected");
-    }
-
-    card.addEventListener("click", (e) => {
-      // Prevent click if it's on the "Details" button
-      if (e.target.classList.contains("details-btn")) return;
-
-      const brand = card.querySelector("p").innerText;
-      const image = card.querySelector("img").src;
-      const product = { name, brand, image };
-
-      card.classList.toggle("selected");
-
-      if (card.classList.contains("selected")) {
-        if (!selectedProducts.some((p) => p.name === name)) {
-          selectedProducts.push(product);
-        }
-      } else {
-        selectedProducts = selectedProducts.filter((p) => p.name !== name);
-      }
-
+  document.querySelectorAll(".remove-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.name;
+      const index = selectedProducts.findIndex((p) => p.name === name);
+      if (index > -1) selectedProducts.splice(index, 1);
       updateSelectedProductsUI();
-    });
-  });
-}
-
-/* Update the selected products section */
-function updateSelectedProductsUI() {
-  selectedProductsList.innerHTML = selectedProducts
-    .map(
-      (product) => `
-      <div class="product-chip" data-name="${product.name}">
-        <img src="${product.image}" alt="${product.name}" />
-        <span>${product.name}</span>
-        <button class="remove-chip-btn" aria-label="Remove ${product.name}">✖</button>
-      </div>
-    `
-    )
-    .join("");
-
-  // Attach event listeners for remove buttons
-  document.querySelectorAll(".remove-chip-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const chip = e.target.closest(".product-chip");
-      const productName = chip.dataset.name;
-
-      selectedProducts = selectedProducts.filter((p) => p.name !== productName);
-
-      // Deselect product card if visible
-      const matchingCard = Array.from(document.querySelectorAll(".product-card")).find(
-        (card) => card.querySelector("h3").innerText === productName
+      displayProducts(
+        selectedProducts.length === 0
+          ? []
+          : productsContainer.dataset.currentCategory
+          ? selectedProducts.filter(
+              (p) => p.category === productsContainer.dataset.currentCategory
+            )
+          : selectedProducts
       );
-
-      if (matchingCard) {
-        matchingCard.classList.remove("selected");
-      }
-
-      updateSelectedProductsUI();
     });
   });
 }
 
-/* Handle category change and filter products */
+/* Show modal with product details */
+function showModal(product) {
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">&times;</button>
+      <img src="${product.image}" alt="${product.name}">
+      <h2>${product.name}</h2>
+      <p><strong>Brand:</strong> ${product.brand}</p>
+      <p><strong>Category:</strong> ${product.category}</p>
+      <p>${product.description || "No description available."}</p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector(".modal-close").addEventListener("click", () =>
+    modal.remove()
+  );
+  modal.addEventListener("click", (e) => {
+    if (e.target.classList.contains("modal-overlay")) modal.remove();
+  });
+}
+
+/* On category change */
 categoryFilter.addEventListener("change", async (e) => {
   const products = await loadProducts();
   const selectedCategory = e.target.value;
+  productsContainer.dataset.currentCategory = selectedCategory;
 
   const filteredProducts = products.filter(
     (product) => product.category === selectedCategory
@@ -128,179 +149,100 @@ categoryFilter.addEventListener("change", async (e) => {
   displayProducts(filteredProducts);
 });
 
-/* Generate Routine button logic */
-generateRoutineBtn.addEventListener("click", async () => {
-  if (selectedProducts.length === 0) {
-    alert("Please select some products first!");
-    return;
-  }
+/* Handle chat input */
+chatForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const userInput = chatForm.elements["userInput"].value;
 
-  // Load full product data to enrich selection with category & description
-  const allProducts = await loadProducts();
+  chatWindow.innerHTML += `<div><strong>You:</strong> ${userInput}</div>`;
 
-  // Enrich selected products with full info
-  const enrichedProducts = selectedProducts.map((selected) => {
-    const match = allProducts.find((p) => p.name === selected.name);
-    return {
-      name: selected.name,
-      brand: selected.brand,
-      category: match?.category || "unknown",
-      description: match?.description || "No description available.",
-    };
-  });
+  conversationHistory.push({ role: "user", content: userInput });
 
-  // Prepare a system and user prompt for OpenAI
-  const messages = [
-    {
-      role: "system",
-      content: `You are a beauty expert helping users create personalized skincare, haircare, or makeup routines using product details. Use simple language and clear instructions. Focus on the products provided by the user. Make the styling of the response user-friendly and easy to follow. Make the response short and concise, ideally under 400 tokens.`,
-    },
-    {
-      role: "user",
-      content: `Here are the user's selected products:\n\n${JSON.stringify(
-        enrichedProducts,
-        null,
-        2
-      )}\n\nPlease create a custom routine using these products. Include step-by-step instructions and group them by category if applicable.`,
-    },
-  ];
-
-  // Show user message in chat
-  // Show user message in chat
-  chatWindow.innerHTML += `<div><strong>You:</strong> Please create a routine using my selected products.</div>`;
-
-  // Show AI thinking message and store its element so we can replace it later
   const thinkingMessage = document.createElement("div");
   thinkingMessage.innerHTML = `<strong>AI:</strong> <em>Thinking...</em>`;
   chatWindow.appendChild(thinkingMessage);
   chatWindow.scrollTop = chatWindow.scrollHeight;
 
-
   try {
     const response = await fetch(workerURL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        messages,
-        max_tokens: 400 // Change this number as needed (default is often 256–300)
-      }),
-
-      
+        messages: conversationHistory,
+        max_tokens: 1500
+      })
     });
 
     const data = await response.json();
+    const aiMessage = data?.choices?.[0]?.message?.content;
 
-    if (
-      data &&
-      data.choices &&
-      data.choices[0] &&
-      data.choices[0].message &&
-      data.choices[0].message.content
-    ) {
-      const aiResponse = data.choices[0].message.content;
-      thinkingMessage.innerHTML = `<strong>AI:</strong><br>${aiResponse.replace(/\n/g, "<br>")}`;
-
+    if (aiMessage) {
+      conversationHistory.push({ role: "assistant", content: aiMessage });
+      thinkingMessage.innerHTML = `<strong>AI:</strong><br>${aiMessage.replace(
+        /\n/g,
+        "<br>"
+      )}`;
     } else {
-      chatWindow.innerHTML += `<div><strong>AI:</strong> Sorry, no routine could be generated.</div>`;
+      thinkingMessage.innerHTML = `<strong>AI:</strong> Sorry, no response received.`;
     }
   } catch (error) {
-    chatWindow.innerHTML += `<div><strong>AI:</strong> Error connecting to AI.</div>`;
-    console.error(error);
-  }
-
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-});
-
-/* Chat form submission logic */
-chatForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const userInput = chatForm.elements["userInput"].value;
-  chatWindow.innerHTML += `<div><strong>You:</strong> ${userInput}</div>`;
-
-  const messages = [
-    { role: "system", content: "You are a helpful beauty assistant." },
-    { role: "user", content: userInput },
-  ];
-
-  try {
-    const response = await fetch(workerURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ messages }),
-    });
-
-    const data = await response.json();
-
-    if (
-      data &&
-      data.choices &&
-      data.choices[0] &&
-      data.choices[0].message &&
-      data.choices[0].message.content
-    ) {
-      chatWindow.innerHTML += `<div><strong>AI:</strong> ${data.choices[0].message.content}</div>`;
-    } else {
-      chatWindow.innerHTML += `<div><strong>AI:</strong> Sorry, no response from AI.</div>`;
-    }
-  } catch (error) {
-    chatWindow.innerHTML += `<div><strong>AI:</strong> Error connecting to AI.</div>`;
+    thinkingMessage.innerHTML = `<strong>AI:</strong> Error connecting to AI.`;
     console.error(error);
   }
 
   chatForm.reset();
+});
+
+/* Generate Routine using selected products */
+generateRoutineBtn.addEventListener("click", async () => {
+  if (selectedProducts.length === 0) return;
+
+  const routinePrompt = `Here are some selected beauty products:\n${selectedProducts
+    .map(
+      (p) =>
+        `- ${p.name} (${p.brand}, ${p.category})\n  Description: ${
+          p.description || "No description provided"
+        }`
+    )
+    .join("\n")}\n\nPlease create a personalized beauty routine using them.`;
+
+  chatWindow.innerHTML += `<div><strong>You:</strong> Please create a routine using my selected products.</div>`;
+
+  const thinkingMessage = document.createElement("div");
+  thinkingMessage.innerHTML = `<strong>AI:</strong> <em>Thinking...</em>`;
+  chatWindow.appendChild(thinkingMessage);
   chatWindow.scrollTop = chatWindow.scrollHeight;
-});
 
-/* ---------- MODAL LOGIC ---------- */
+  conversationHistory.push({ role: "user", content: routinePrompt });
 
-// Modal references
-const productModal = document.getElementById("productModal");
-const modalTitle = document.getElementById("modalTitle");
-const modalImage = document.getElementById("modalImage");
-const modalDescription = document.getElementById("modalDescription");
-const modalCloseBtn = document.getElementById("modalCloseBtn");
+  try {
+    const response = await fetch(workerURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: conversationHistory,
+        max_tokens: 1500
+      })
+    });
 
-modalCloseBtn.addEventListener("click", closeModal);
-productModal.addEventListener("click", (e) => {
-  if (e.target === productModal) closeModal();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && productModal.getAttribute("aria-hidden") === "false") {
-    closeModal();
+    const data = await response.json();
+    const aiResponse = data?.choices?.[0]?.message?.content;
+
+    if (aiResponse) {
+      conversationHistory.push({ role: "assistant", content: aiResponse });
+      thinkingMessage.innerHTML = `<strong>AI:</strong><br>${aiResponse.replace(
+        /\n/g,
+        "<br>"
+      )}`;
+    } else {
+      thinkingMessage.innerHTML = `<strong>AI:</strong> Sorry, no routine could be generated.`;
+    }
+  } catch (error) {
+    thinkingMessage.innerHTML = `<strong>AI:</strong> Error connecting to AI.`;
+    console.error(error);
   }
 });
-
-function closeModal() {
-  productModal.setAttribute("aria-hidden", "true");
-  productModal.style.display = "none";
-}
-
-function openModal(product) {
-  modalTitle.textContent = product.name;
-  modalImage.src = product.image;
-  modalImage.alt = product.name;
-  modalDescription.textContent = product.description || "No description available.";
-  productModal.setAttribute("aria-hidden", "false");
-  productModal.style.display = "flex";
-}
-
-function addDetailsButtonHandlers(products) {
-  const detailButtons = document.querySelectorAll(".details-btn");
-
-  detailButtons.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const card = e.target.closest(".product-card");
-      const productName = card.dataset.name;
-      const product = products.find((p) => p.name === productName);
-
-      if (product) {
-        openModal(product);
-      }
-    });
-  });
-}
