@@ -10,7 +10,7 @@ const workerURL = "https://new-beauty-bot.crops1023.workers.dev/";
 
 // Persistent conversation history
 const conversationHistory = [
-  { role: "system", content: "You are a helpful beauty assistant." }
+  { role: "system", content: "You are an expert beatuy assistant with L'Oreal. You are tasked with answering follow up questions on the generated routine you make. You will only responses relevant to L'Oreal beauty products and the generated response. Keep your responses below 500 tokens. Keep your responses short and to the point. Make your responses clear and easy to read. Add emoji." }
 ];
 
 // Track selected products globally
