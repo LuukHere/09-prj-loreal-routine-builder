@@ -10,8 +10,7 @@ const workerURL = "https://new-beauty-bot.crops1023.workers.dev/";
 
 // Persistent conversation history
 const conversationHistory = [
-  { role: "system", content: `You are an expert, helpful beauty assistant for L'Oreal. The questions from the user should relate only to the generated routine or to topics like skincare, haircare, makeup, fragrance, and other related areas. Do not answer questions outside of these topics. 
-`}
+  { role: "system", content: "You are a helpful beauty assistant." }
 ];
 
 // Track selected products globally
@@ -27,222 +26,296 @@ async function loadProducts() {
 /* Display products */
 function displayProducts(products) {
   productsContainer.innerHTML = products
-    .map((product) => {
-      const isSelected = selectedProducts.some((p) => p.name === product.name);
-      return `
-        <div class="product-card ${isSelected ? "selected" : ""}" data-name="${product.name}">
-          <img src="${product.image}" alt="${product.name}">
-          <div class="product-info">
-            <h3>${product.name}</h3>
-            <p>${product.brand}</p>
-            <button class="details-btn">Details</button>
-          </div>
+    .map(p => `
+      <article tabindex="0" class="product-card ${isSelected(p.name) ? "selected" : ""}" data-name="${p.name}" data-description="${p.description}" data-image="${p.image}">
+        <img src="${p.image}" alt="${p.name} image" />
+        <div class="product-info">
+          <h3>${p.name}</h3>
+          <button class="details-btn" aria-label="View details of ${p.name}">Details</button>
         </div>
-      `;
-    })
+      </article>
+    `)
     .join("");
 
-  // Add click listeners
-  document.querySelectorAll(".product-card").forEach((card) => {
+  // Add click and keyboard accessibility for product selection
+  const productCards = productsContainer.querySelectorAll(".product-card");
+  productCards.forEach(card => {
     card.addEventListener("click", (e) => {
-      if (e.target.classList.contains("details-btn")) return; // Skip if clicking Details button
-      const name = card.dataset.name;
-      toggleProductSelection(name);
+      // Prevent toggling selection when clicking "Details" button
+      if (e.target.classList.contains("details-btn")) return;
+      toggleProductSelection(card);
+    });
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleProductSelection(card);
+      }
     });
   });
 
-  // Add modal listeners
-  document.querySelectorAll(".details-btn").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const name = btn.closest(".product-card").dataset.name;
-      const allProducts = await loadProducts();
-      const product = allProducts.find((p) => p.name === name);
-      if (product) showModal(product);
+  // Add event listeners for details buttons
+  const detailsButtons = productsContainer.querySelectorAll(".details-btn");
+  detailsButtons.forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent triggering card click
+      const card = btn.closest(".product-card");
+      openDetailsModal(card.dataset.name, card.dataset.image, card.dataset.description);
     });
   });
+}
+
+/* Check if product is selected */
+function isSelected(name) {
+  return selectedProducts.some(p => p.name === name);
 }
 
 /* Toggle selection */
-function toggleProductSelection(name) {
-  loadProducts().then((allProducts) => {
-    const product = allProducts.find((p) => p.name === name);
-    const index = selectedProducts.findIndex((p) => p.name === name);
-    if (index > -1) {
-      selectedProducts.splice(index, 1);
-    } else {
-      selectedProducts.push(product);
-    }
-    updateSelectedProductsUI();
-    displayProducts(
-      allProducts.filter((p) => p.category === categoryFilter.value)
-    );
-  });
+function toggleProductSelection(card) {
+  const name = card.dataset.name;
+  const description = card.dataset.description;
+  const image = card.dataset.image;
+
+  const index = selectedProducts.findIndex(p => p.name === name);
+
+  if (index > -1) {
+    // Remove product
+    selectedProducts.splice(index, 1);
+  } else {
+    // Add product
+    selectedProducts.push({ name, description, image });
+  }
+  updateSelectedProductsUI();
+  displayProducts(currentProducts);
 }
 
-/* Update selected chips */
+/* Update selected products UI */
 function updateSelectedProductsUI() {
+  if (selectedProducts.length === 0) {
+    selectedProductsList.innerHTML = "<p>No products selected.</p>";
+    generateRoutineBtn.disabled = true;
+    return;
+  }
+  generateRoutineBtn.disabled = false;
+
   selectedProductsList.innerHTML = selectedProducts
     .map(
-      (p) => `
-    <div class="chip">
+      p => `
+    <div class="product-chip" tabindex="0">
       ${p.name}
-      <button class="remove-chip" data-name="${p.name}">✖</button>
+      <button class="remove-chip-btn" aria-label="Remove ${p.name}" data-name="${p.name}">✖</button>
     </div>
   `
     )
     .join("");
 
-  document.querySelectorAll(".remove-chip").forEach((btn) => {
+  // Add remove button listeners
+  const removeButtons = selectedProductsList.querySelectorAll(".remove-chip-btn");
+  removeButtons.forEach(btn => {
     btn.addEventListener("click", () => {
       const name = btn.dataset.name;
-      const index = selectedProducts.findIndex((p) => p.name === name);
-      if (index > -1) selectedProducts.splice(index, 1);
-      updateSelectedProductsUI();
-      displayProducts(
-        selectedProducts.length === 0
-          ? []
-          : productsContainer.dataset.currentCategory
-          ? selectedProducts.filter(
-              (p) => p.category === productsContainer.dataset.currentCategory
-            )
-          : selectedProducts
-      );
+      const index = selectedProducts.findIndex(p => p.name === name);
+      if (index > -1) {
+        selectedProducts.splice(index, 1);
+        updateSelectedProductsUI();
+        displayProducts(currentProducts);
+      }
+    });
+    btn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        btn.click();
+      }
     });
   });
 }
 
-/* Show modal with product details */
-function showModal(product) {
-  const modal = document.createElement("div");
-  modal.className = "modal-overlay";
-  modal.innerHTML = `
-    <div class="modal">
-      <button class="modal-close">&times;</button>
-      <img src="${product.image}" alt="${product.name}">
-      <h2>${product.name}</h2>
-      <p><strong>Brand:</strong> ${product.brand}</p>
-      <p><strong>Category:</strong> ${product.category}</p>
-      <p>${product.description || "No description available."}</p>
-    </div>
+/* Filter products by category */
+function filterProducts(products, category) {
+  if (!category || category === "all") {
+    return products;
+  }
+  return products.filter(p => p.category === category);
+}
+
+/* Chat send message */
+function appendMessage(role, text) {
+  const message = document.createElement("div");
+  message.className = role === "user" ? "user-message" : "bot-message";
+  message.textContent = text;
+  chatWindow.appendChild(message);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+/* Fetch and display bot response */
+async function fetchBotResponse(message) {
+  conversationHistory.push({ role: "user", content: message });
+
+  appendMessage("user", message);
+
+  chatForm.querySelector("input").value = "";
+  chatForm.querySelector("input").focus();
+
+  appendMessage("bot", "Loading...");
+
+  try {
+    const res = await fetch(workerURL, {
+      method: "POST",
+      body: JSON.stringify({
+        messages: conversationHistory,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) throw new Error("Failed to fetch response");
+
+    const data = await res.json();
+
+    // Remove "Loading..." placeholder
+    const loadingMsg = chatWindow.querySelector(".bot-message:last-child");
+    if (loadingMsg && loadingMsg.textContent === "Loading...") {
+      loadingMsg.remove();
+    }
+
+    const botReply = data.choices[0].message.content;
+    conversationHistory.push({ role: "assistant", content: botReply });
+    appendMessage("bot", botReply);
+  } catch (error) {
+    const loadingMsg = chatWindow.querySelector(".bot-message:last-child");
+    if (loadingMsg && loadingMsg.textContent === "Loading...") {
+      loadingMsg.remove();
+    }
+    appendMessage("bot", "Sorry, something went wrong.");
+    console.error(error);
+  }
+}
+
+/* Generate routine (stub) */
+function generateRoutine() {
+  const routinePrompt = `Create a personalized beauty routine using these products: ${selectedProducts.map(p => p.name).join(", ")}.`;
+  fetchBotResponse(routinePrompt);
+}
+
+/* Modal accessibility focus trap */
+function trapFocus(element) {
+  const focusableSelectors = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex]:not([tabindex="-1"]), [contenteditable]';
+  const focusableElements = Array.from(element.querySelectorAll(focusableSelectors))
+    .filter(el => el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement);
+  
+  if (focusableElements.length === 0) return;
+
+  const first = focusableElements[0];
+  const last = focusableElements[focusableElements.length - 1];
+
+  function handleKey(e) {
+    if (e.key === "Tab") {
+      if (e.shiftKey) { // shift + tab
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else { // tab
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    } else if (e.key === "Escape") {
+      closeModal();
+    }
+  }
+
+  element.addEventListener("keydown", handleKey);
+
+  return () => {
+    element.removeEventListener("keydown", handleKey);
+  };
+}
+
+/* Modal open and close handlers */
+const modal = document.querySelector(".modal");
+const modalContent = document.querySelector(".modal-content");
+const modalCloseBtn = document.querySelector(".modal-close");
+let lastFocusedElement = null;
+let removeFocusTrap = null;
+
+function openModal(imageSrc, altText) {
+  lastFocusedElement = document.activeElement;
+  modalContent.querySelector("img").src = imageSrc;
+  modalContent.querySelector("img").alt = altText;
+
+  modal.setAttribute("aria-hidden", "false");
+  modalContent.setAttribute("tabindex", "-1");
+  modalContent.focus();
+
+  removeFocusTrap = trapFocus(modalContent);
+}
+
+function closeModal() {
+  modal.setAttribute("aria-hidden", "true");
+  if (removeFocusTrap) removeFocusTrap();
+  if (lastFocusedElement) lastFocusedElement.focus();
+}
+
+/* Open details modal with product info */
+function openDetailsModal(name, image, description) {
+  lastFocusedElement = document.activeElement;
+  modalContent.innerHTML = `
+    <button class="modal-close" aria-label="Close modal">&times;</button>
+    <h2>${name}</h2>
+    <img src="${image}" alt="${name} image" />
+    <p>${description}</p>
   `;
-  document.body.appendChild(modal);
 
-  modal.querySelector(".modal-close").addEventListener("click", () =>
-    modal.remove()
-  );
-  modal.addEventListener("click", (e) => {
-    if (e.target.classList.contains("modal-overlay")) modal.remove();
-  });
+  modal.setAttribute("aria-hidden", "false");
+  modalContent.setAttribute("tabindex", "-1");
+  modalContent.focus();
+
+  removeFocusTrap = trapFocus(modalContent);
+
+  // Add close button event listener
+  const closeBtn = modalContent.querySelector(".modal-close");
+  closeBtn.addEventListener("click", closeModal);
 }
 
-/* On category change */
-categoryFilter.addEventListener("change", async (e) => {
-  const products = await loadProducts();
-  const selectedCategory = e.target.value;
-  productsContainer.dataset.currentCategory = selectedCategory;
-
-  const filteredProducts = products.filter(
-    (product) => product.category === selectedCategory
-  );
-
-  displayProducts(filteredProducts);
+/* Event listeners for modal */
+modal.addEventListener("click", e => {
+  if (e.target === modal) {
+    closeModal();
+  }
 });
 
-/* Handle chat input */
-chatForm.addEventListener("submit", async (e) => {
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && modal.getAttribute("aria-hidden") === "false") {
+    closeModal();
+  }
+});
+
+/* Variables to hold products */
+let allProducts = [];
+let currentProducts = [];
+
+/* Initialization */
+loadProducts().then(products => {
+  allProducts = products;
+  currentProducts = products;
+  displayProducts(currentProducts);
+
+  categoryFilter.addEventListener("change", e => {
+    const filtered = filterProducts(allProducts, e.target.value);
+    currentProducts = filtered;
+    displayProducts(currentProducts);
+  });
+});
+
+chatForm.addEventListener("submit", e => {
   e.preventDefault();
-  const userInput = chatForm.elements["userInput"].value;
-
-  chatWindow.innerHTML += `<div><strong>You:</strong> ${userInput}</div>`;
-
-  conversationHistory.push({ role: "user", content: userInput });
-
-  const thinkingMessage = document.createElement("div");
-  thinkingMessage.innerHTML = `<strong>AI:</strong> <em>Thinking...</em>`;
-  chatWindow.appendChild(thinkingMessage);
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-
-  try {
-    const response = await fetch(workerURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messages: conversationHistory,
-        max_tokens: 1500
-      })
-    });
-
-    const data = await response.json();
-    const aiMessage = data?.choices?.[0]?.message?.content;
-
-    if (aiMessage) {
-      conversationHistory.push({ role: "assistant", content: aiMessage });
-      thinkingMessage.innerHTML = `<strong>AI:</strong><br>${aiMessage.replace(
-        /\n/g,
-        "<br>"
-      )}`;
-    } else {
-      thinkingMessage.innerHTML = `<strong>AI:</strong> Sorry, no response received.`;
-    }
-  } catch (error) {
-    thinkingMessage.innerHTML = `<strong>AI:</strong> Error connecting to AI.`;
-    console.error(error);
-  }
-
-  chatForm.reset();
+  const input = chatForm.querySelector("input");
+  if (input.value.trim() === "") return;
+  fetchBotResponse(input.value.trim());
 });
 
-/* Generate Routine using selected products */
-generateRoutineBtn.addEventListener("click", async () => {
-  if (selectedProducts.length === 0) return;
-
-  const routinePrompt = `Here are some selected beauty products:\n${selectedProducts
-    .map(
-      (p) =>
-        `- ${p.name} (${p.brand}, ${p.category})\n  Description: ${
-          p.description || "No description provided"
-        }`
-    )
-    .join("\n")}\n\nPlease create a personalized beauty routine using them.`;
-
-  chatWindow.innerHTML += `<div><strong>You:</strong> Please create a routine using my selected products.</div>`;
-
-  const thinkingMessage = document.createElement("div");
-  thinkingMessage.innerHTML = `<strong>AI:</strong> <em>Thinking...</em>`;
-  chatWindow.appendChild(thinkingMessage);
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-
-  conversationHistory.push({ role: "user", content: routinePrompt });
-
-  try {
-    const response = await fetch(workerURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messages: conversationHistory,
-        max_tokens: 1500
-      })
-    });
-
-    const data = await response.json();
-    const aiResponse = data?.choices?.[0]?.message?.content;
-
-    if (aiResponse) {
-      conversationHistory.push({ role: "assistant", content: aiResponse });
-      thinkingMessage.innerHTML = `<strong>AI:</strong><br>${aiResponse.replace(
-        /\n/g,
-        "<br>"
-      )}`;
-    } else {
-      thinkingMessage.innerHTML = `<strong>AI:</strong> Sorry, no routine could be generated.`;
-    }
-  } catch (error) {
-    thinkingMessage.innerHTML = `<strong>AI:</strong> Error connecting to AI.`;
-    console.error(error);
-  }
-});
+/* Generate routine button */
+generateRoutineBtn.disabled = true;
+generateRoutineBtn.addEventListener("click", generateRoutine);
