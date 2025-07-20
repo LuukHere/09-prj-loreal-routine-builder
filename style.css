@@ -46,7 +46,7 @@ body {
   width: 100%;
   padding: 16px;
   font-size: 18px;
-  border: 2px solid #000;
+  border: 2px solid #ff003b; /* L’Oréal red */
   border-radius: 8px;
   cursor: pointer;
   background-color: white;
@@ -55,13 +55,13 @@ body {
 
 .search-section select:focus {
   outline: none;
-  border-color: #666;
+  border-color: #e3a535; /* L’Oréal gold */
 }
 
 /* chat section */
 .chatbox {
   margin: 40px 0;
-  border: 2px solid #000;
+  border: 2px solid #ff003b; /* L’Oréal red */
   border-radius: 8px;
   padding: 26px;
 }
@@ -79,6 +79,11 @@ body {
   overflow-y: auto;
   background: #fafafa;
   margin-bottom: 20px;
+}
+
+.user-message,
+.bot-message {
+  margin-bottom: 12px; /* space between chat messages */
 }
 
 /* placeholder message */
@@ -108,12 +113,12 @@ body {
 
 .chat-form input:focus {
   outline: none;
-  border-bottom-color: #000;
+  border-bottom-color: #ff003b; /* L’Oréal red */
 }
 
 .chat-form button {
   font-size: 18px;
-  background: #000;
+  background: #ff003b; /* L’Oréal red */
   color: #fff;
   border: none;
   padding: 12px;
@@ -127,11 +132,12 @@ body {
 }
 
 .chat-form button:hover {
-  background: #666666;
+  background: #e3a535; /* L’Oréal gold */
+  color: #000;
 }
 
 .chat-form button:focus {
-  outline: 2px solid #000;
+  outline: 2px solid #e3a535; /* L’Oréal gold */
   outline-offset: 2px;
 }
 
@@ -162,12 +168,12 @@ body {
 
 .site-footer a {
   margin: 0 8px;
-  color: #000;
+  color: #ff003b; /* L’Oréal red */
   text-decoration: none;
 }
 
 .site-footer a:hover {
-  color: #666666;
+  color: #e3a535; /* L’Oréal gold */
 }
 
 /* products grid */
@@ -191,7 +197,7 @@ body {
 }
 
 .product-card:focus {
-  outline: 2px solid #00aaff;
+  outline: 2px solid #ff003b; /* L’Oréal red */
 }
 
 .product-card img {
@@ -209,21 +215,11 @@ body {
   min-height: 110px;
 }
 
-.product-card h3 {
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-
-.product-card p {
-  font-size: 14px;
-  color: #666;
-}
-
 /* selected products */
 .selected-products {
   margin: 40px 0;
   padding: 20px;
-  border: 2px solid #000;
+  border: 2px solid #ff003b; /* L’Oréal red */
   border-radius: 8px;
 }
 
@@ -253,7 +249,7 @@ body {
 }
 
 .product-chip:focus {
-  outline: 2px solid #00aaff;
+  outline: 2px solid #ff003b; /* L’Oréal red */
 }
 
 .product-chip img {
@@ -274,11 +270,11 @@ body {
 }
 
 .remove-chip-btn:hover {
-  color: #e00;
+  color: #ff003b; /* L’Oréal red */
 }
 
 .remove-chip-btn:focus {
-  outline: 2px solid #e00;
+  outline: 2px solid #ff003b; /* L’Oréal red */
   outline-offset: 2px;
 }
 
@@ -330,15 +326,15 @@ body {
 
 .modal-close:hover,
 .modal-close:focus {
-  color: #000;
-  outline: 2px solid #000;
+  color: #ff003b; /* L’Oréal red */
+  outline: 2px solid #ff003b;
   outline-offset: 2px;
 }
 
 /* Selected product card highlight */
 .product-card.selected {
-  border: 2px solid #00aaff; /* Light blue border when selected */
-  background-color: #f0faff; /* Optional: light background to indicate selection */
+  border: 2px solid #e3a535; /* L’Oréal gold */
+  background-color: #fff8e1; /* light gold background */
 }
 
 /* Responsive grid */
